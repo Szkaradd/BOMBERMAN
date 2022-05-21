@@ -351,9 +351,28 @@ Lobby create_lobby_from_hello_message(char *message, size_t len) {
                  explosion_radius, bomb_timer};
 }
 
+void create_join_message(char *message, size_t &size) {
+    char *pointer = message;
+    uint8_t id = 0;
+    modify_message_and_increase_pointer(pointer, &id, sizeof(uint8_t));
+    std::string name = "Koteczek";
+    auto name_len = (uint8_t)name.length();
+    size = 2 * sizeof(uint8_t) + name_len * sizeof(char);
+    modify_message_and_increase_pointer(pointer, &name_len, sizeof(uint8_t));
+    modify_message_and_increase_pointer(pointer, (void*)name.c_str(), name_len * sizeof(char));
+}
+
 void receive_from_server_send_to_gui(tcp::socket &tcp_socket, udp::socket &udp_socket) {
     try {
+        char message_to_server[DEFAULT_TCP_MSG_SIZE];
+        size_t server_msg_size;
+        create_join_message(message_to_server, server_msg_size);
+        boost::system::error_code error;
+        boost::asio::write(tcp_socket, boost::asio::buffer(message_to_server, server_msg_size), error);
+
+
         char message_from_server[DEFAULT_TCP_MSG_SIZE];
+        char message_to_gui[MAX_UDP_BUFF_SIZE];
         size_t len = tcp_socket.receive(boost::asio::buffer(message_from_server));
         if (len == 0) {
             std::cerr << "Error in receiving message from server.\n";
@@ -389,6 +408,9 @@ void receive_from_server_send_to_gui(tcp::socket &tcp_socket, udp::socket &udp_s
                 std::cerr << "wrong message from server.\n";
                 exit(EXIT_FAILURE);
         }
+        size_t size;
+        lobby.serialize_message(size, message_to_gui);
+        //udp_socket.send_to(boost::asio::buffer(message_to_gui, size), );
     }
     catch (std::exception &e) {
         std::cerr << "error " << e.what() << '\n';
@@ -409,9 +431,10 @@ int main(int argc, char *argv[]) {
             tcp_resolver.resolve(server_address.address, server_address.port);
 
     tcp::socket tcp_socket(io_context/*, tcp::endpoint(tcp::v6(), settings.port)*/);
-    tcp_socket.set_option(tcp::no_delay(true));
 
     boost::asio::connect(tcp_socket, endpoints); // Connect to server.
+    tcp_socket.set_option(tcp::no_delay(true));
+
 
     udp::socket udp_socket(io_context, udp::endpoint(udp::v6(), settings.port));
 
@@ -419,7 +442,8 @@ int main(int argc, char *argv[]) {
     auto udp_endpoints =
             udp_resolver.resolve(gui_address.address, gui_address.port);
 
-    receive_from_gui_send_to_server(tcp_socket, udp_socket);
+    receive_from_server_send_to_gui(tcp_socket, udp_socket);
+    //receive_from_gui_send_to_server(tcp_socket, udp_socket);
 
     // handle_connection_with_gui(io_context, gui_address, settings.port);
 

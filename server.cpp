@@ -11,7 +11,7 @@ int main(int argc, char *argv[]) {
     try {
         boost::asio::io_context io_context;
 
-        auto port = (uint16_t)atoi(argv[1]);
+        auto port = (uint16_t)std::stoi(argv[1]);
         tcp::acceptor acceptor(io_context, tcp::endpoint(tcp::v6(), port));
 
         while(true) {
