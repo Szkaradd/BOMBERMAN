@@ -19,15 +19,15 @@ using boost::asio::ip::tcp;
 using boost::asio::ip::udp;
 
 // Struct for storing data from the command line.
-struct launch_settings {
+struct client_parameters {
     std::string gui_address;
     std::string server_address;
     std::string player_name;
     uint16_t port{};
 
-    launch_settings() = default;
+    client_parameters() = default;
 
-    launch_settings(std::string  ga, std::string sa, std::string  pn, uint16_t p)
+    client_parameters(std::string  ga, std::string sa, std::string  pn, uint16_t p)
             : gui_address(std::move(ga)), server_address(std::move(sa)),
             player_name(std::move(pn)), port(p) {};
 };
@@ -48,7 +48,7 @@ public:
 
     address_info server_address;
     address_info gui_address;
-    launch_settings settings;
+    client_parameters settings;
     udp::socket gui_socket{io_context};
     udp::endpoint gui_endpoint{};
     udp::resolver UDP_resolver{io_context};
@@ -58,7 +58,7 @@ public:
 
     // Constructor attempts to connect with
     // server specified in command line options.
-    explicit ClientInfo(launch_settings l_settings) {
+    explicit ClientInfo(client_parameters l_settings) {
         settings = std::move(l_settings);
         server_address = get_address_info(settings.server_address);
         gui_address = get_address_info(settings.gui_address);
@@ -80,7 +80,7 @@ public:
 // Create game settings from command line params.
 // If params are incorrect specify error message and exit.
 // If parameter -h [--help] was passed - produce help message.
-launch_settings check_parameters_and_fill_settings(int argc, char *argv[]) {
+client_parameters check_parameters_and_fill_settings(int argc, char *argv[]) {
     std::string gui_address;
     std::string server_address;
     std::string player_name;
@@ -93,7 +93,7 @@ launch_settings check_parameters_and_fill_settings(int argc, char *argv[]) {
                 ("help,h", "produce help message")
                 ("gui-address,d", po::value<std::string>(&gui_address)->required(),
                         "specify gui address")
-                ("Player-name,n", po::value<std::string>(&player_name)->required(),
+                ("player-name,n", po::value<std::string>(&player_name)->required(),
                         "set Player name")
                 ("server-address,s", po::value<std::string>(&server_address)->required(),
                         "specify server address")
@@ -120,7 +120,7 @@ launch_settings check_parameters_and_fill_settings(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    auto settings = launch_settings(gui_address, server_address, player_name, port);
+    auto settings = client_parameters(gui_address, server_address, player_name, port);
     return settings;
 }
 
@@ -380,7 +380,7 @@ void receive_from_server_send_to_gui(ClientInfo &client_info) {
 
 int main(int argc, char *argv[]) {
     try {
-        launch_settings settings = check_parameters_and_fill_settings(argc, argv);
+        client_parameters settings = check_parameters_and_fill_settings(argc, argv);
         ClientInfo client_info(settings);
 
         std::thread gui_listener_thread(receive_from_gui_send_to_server, std::ref(client_info));

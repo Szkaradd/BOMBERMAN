@@ -105,8 +105,7 @@ Buffer &operator>>(Buffer &buffer, Direction &direction) {
     uint8_t dir;
     buffer >> dir;
     if (dir > 3) {
-        std::cerr << "Wrong direction.\n";
-        exit(EXIT_FAILURE);
+        throw std::invalid_argument("Wrong direction received");
     }
     direction = (Direction) dir;
     return buffer;
@@ -218,6 +217,15 @@ Buffer &operator>>(Buffer &buffer, std::set<player_id_t>& players) {
     return buffer;
 }
 
+// Writing player id's set operator.
+Buffer &operator<<(Buffer &buffer, const std::set<player_id_t>& players) {
+    buffer << (uint32_t)(players.size());
+    for (auto id : players) {
+        buffer << id;
+    }
+    return buffer;
+}
+
 /* Reading events operators. */
 
 // Reading event operator.
@@ -225,8 +233,7 @@ Buffer &operator>>(Buffer &buffer, Event &event) {
     uint8_t event_type;
     buffer >> event_type;
     if (event_type > 3) {
-        std::cerr << "Wrong event type received\n";
-        exit(EXIT_FAILURE);
+        throw std::invalid_argument("Wrong event type received");
     }
     event.event_type = (EventType) event_type;
     switch (event.event_type) {
@@ -246,6 +253,26 @@ Buffer &operator>>(Buffer &buffer, Event &event) {
     return buffer;
 }
 
+// Writing event operator.
+Buffer &operator<<(Buffer &buffer, const Event &event) {
+    buffer << (uint8_t)event.event_type;
+    switch (event.event_type) {
+        case BombPlaced:
+            buffer << event.bomb_id << event.position;
+            break;
+        case BombExploded:
+            buffer << event.bomb_id << event.robots_destroyed << event.blocks_destroyed;
+            break;
+        case PlayerMoved:
+            buffer << event.player_id << event.position;
+            break;
+        case BlockPlaced:
+            buffer << event.position;
+            break;
+    }
+    return buffer;
+}
+
 // Read events vector operator.
 Buffer &operator>>(Buffer &buffer, std::vector<Event> &events) {
     size_t size = buffer.readUint32();
@@ -258,8 +285,16 @@ Buffer &operator>>(Buffer &buffer, std::vector<Event> &events) {
     return buffer;
 }
 
+// Write events vector operator.
+Buffer &operator<<(Buffer &buffer, const std::vector<Event> &events) {
+    buffer << (uint32_t)events.size();
+    for (const auto& event : events) {
+        buffer << event;
+    }
+    return buffer;
+}
 
-/* Reading and writing actual messages that client will receive or send. */
+/* Reading and writing actual messages that client and server will receive or send. */
 
 // Writing message to gui operator.
 Buffer &operator<<(Buffer &buffer, const MessageToGui &message) {
@@ -306,12 +341,27 @@ Buffer &operator<<(Buffer &buffer, const ClientMessage &message) {
     return buffer;
 }
 
+// Read client message operator.
+Buffer &operator>>(Buffer &buffer, ClientMessage &message) {
+    uint8_t msg_type = buffer.readUint8();
+    if (msg_type > 3) {
+        throw std::invalid_argument("Wrong message type received");
+    }
+    message.msg_type = (ClientMessageEnum)msg_type;
+    if (message.msg_type == Join) {
+        buffer >> message.player_name;
+    }
+    else if (message.msg_type == Move) {
+        buffer >> message.direction;
+    }
+    return buffer;
+}
+
 // Reading server message operator.
 Buffer &operator>>(Buffer &buffer, ServerMessage &message) {
     uint8_t msg_type = buffer.readUint8();
     if (msg_type > 4) {
-        std::cerr << "Wrong message type from server\n";
-        exit(EXIT_FAILURE);
+        throw std::invalid_argument("Wrong message type received");
     }
     message.msg_type = (ServerMessageEnum) msg_type;
     switch (message.msg_type) {
@@ -331,6 +381,31 @@ Buffer &operator>>(Buffer &buffer, ServerMessage &message) {
             break;
         case GameEnded:
             buffer >> message.scores;
+            break;
+    }
+    return buffer;
+}
+
+// Writing server message operator.
+Buffer &operator<<(Buffer &buffer, const ServerMessage &message) {
+    buffer << (uint8_t)message.msg_type;
+    switch (message.msg_type) {
+        case Hello:
+            buffer << message.server_name << message.player_count
+                   << message.size_x << message.size_y << message.game_length
+                   << message.explosion_radius << message.bomb_timer;
+            break;
+        case AcceptedPlayer:
+            buffer << message.player_id << message.player;
+            break;
+        case GameStarted:
+            buffer << message.players;
+            break;
+        case Turn:
+            buffer << message.turn << message.events;
+            break;
+        case GameEnded:
+            buffer << message.scores;
             break;
     }
     return buffer;

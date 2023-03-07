@@ -5,9 +5,11 @@
 #include <iostream>
 #include <utility>
 
+// Constants for buffer sizes.
 static const size_t UDP_BUFF_SIZE = 65507;
 static const size_t TCP_BUFF_SIZE = 1024;
 
+// Class buffer for reading and writing network messages.
 class Buffer {
 protected:
     char *buff;
@@ -18,12 +20,18 @@ protected:
         buff = new char[s];
     }
 
+    // Function make sure that there is enough space in the buffer to write n bytes.
     virtual void ensureThatWriteIsPossible([[maybe_unused]]size_t to_write) {};
+    // Function make sure that there will be enough bytes to read.
     virtual void ensureThatReadIsPossible([[maybe_unused]]size_t to_read) {};
 
 public:
     virtual void receiveMsg([[maybe_unused]]size_t to_receive) {};
     virtual void sendMsg() {};
+
+    // Functions for writing and reading standard data types into the buffer.
+    // Each time we write we add sizeof(read variable) to write cursor.
+    // Each time we read we add sizeof(read variable) to read cursor.
 
     void writeUint8(const uint8_t &value) {
         ensureThatWriteIsPossible(sizeof(uint8_t));
@@ -95,6 +103,7 @@ public:
     }
 };
 
+// Buffer for sending and reading UDP messages.
 class UDPBuffer : public Buffer {
     boost::asio::ip::udp::socket &udp_socket;
     boost::asio::ip::udp::endpoint udp_endpoint;
@@ -103,22 +112,26 @@ public:
     UDPBuffer(boost::asio::ip::udp::socket & socket, boost::asio::ip::udp::endpoint  endpoint) :
             Buffer(UDP_BUFF_SIZE), udp_socket(socket), udp_endpoint(std::move(endpoint)) {}
 
+    // If we receive message we treat write cursor as message size.
     void receiveMsg([[maybe_unused]]size_t to_receive) override {
         read_cursor = 0;
         write_cursor = udp_socket.receive(boost::asio::buffer(buff, size));
     }
 
     void sendMsg() override {
-        size_t bytes = udp_socket.send_to(boost::asio::buffer
+        udp_socket.send_to(boost::asio::buffer
                 (buff, write_cursor), udp_endpoint);
         read_cursor = 0;
         write_cursor = 0;
     }
 };
 
+// Buffer for sending and reading TCP messages.
 class TCPBuffer : public Buffer {
     boost::asio::ip::tcp::socket &tcp_socket;
 
+    // Function checks if it is possible to read to_read bytes from buffer.
+    // If it exceeded buff size we move buffer contents to the left.
     void ensureThatReadIsPossible(const size_t to_read) override {
         if (read_cursor + to_read > size) {
             for (size_t i = 0; i < write_cursor - read_cursor; i++) {
@@ -127,11 +140,13 @@ class TCPBuffer : public Buffer {
             write_cursor -= read_cursor;
             read_cursor = 0;
         }
+        // If buffer content size is smaller than to_read we need another message.
         if (write_cursor - read_cursor < to_read) {
             receiveMsg(to_read - (write_cursor - read_cursor));
         }
     }
 
+    // If we exceeded buffer size we just send the message.
     void ensureThatWriteIsPossible(const size_t to_write) override {
         if (write_cursor + to_write > size) {
             sendMsg();
@@ -143,20 +158,21 @@ public:
             Buffer(TCP_BUFF_SIZE), tcp_socket(socket) {
     }
 
+    // Receive exactly to_receive bytes.
     void receiveMsg(size_t to_receive) override {
         boost::system::error_code error;
         boost::asio::read(
                 tcp_socket, boost::asio::buffer(buff + write_cursor, to_receive), error
         );
         if (error == boost::asio::error::eof) {
-            std::cerr << "Connection closed by peer.\n";
-            exit(EXIT_FAILURE);
+            throw std::invalid_argument("Connection closed by peer");
         } else if (error) {
             throw boost::system::system_error(error);
         }
         write_cursor += to_receive;
     }
 
+    // Send message with all buffer contents.
     void sendMsg() override {
         if (write_cursor - read_cursor > 0) {
             boost::asio::write(

@@ -17,6 +17,23 @@ using player_id_t = uint8_t;
 using bomb_id_t = uint32_t;
 using score_t = uint32_t;
 
+// Struct for storing data from the server command line.
+struct server_parameters {
+    uint16_t bomb_timer{};
+    uint8_t players_count{};
+    uint64_t turn_duration{};
+    uint16_t explosion_radius{};
+    uint16_t initial_blocks{};
+    uint16_t game_length{};
+    std::string server_name;
+    uint16_t size_x{};
+    uint16_t size_y{};
+    uint32_t seed{};
+    uint16_t port{};
+
+    server_parameters() = default;
+};
+
 /* Enums from task contents. */
 
 enum MessageToGuiEnum : uint8_t {
