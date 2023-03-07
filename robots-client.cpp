@@ -1,12 +1,13 @@
 #include <boost/asio.hpp>
 #include <boost/program_options.hpp>
 #include <iostream>
-#include <utility>
 #include <map>
-#include "definitions.hpp"
-#include "utils.hpp"
+#include <utility>
+
 #include "buffer.hpp"
+#include "definitions.hpp"
 #include "serialization.hpp"
+#include "utils.hpp"
 
 #ifndef NDEBUG
 const bool debug = true;
@@ -27,14 +28,18 @@ struct client_parameters {
 
     client_parameters() = default;
 
-    client_parameters(std::string  ga, std::string sa, std::string  pn, uint16_t p)
-            : gui_address(std::move(ga)), server_address(std::move(sa)),
-            player_name(std::move(pn)), port(p) {};
+    client_parameters(std::string ga, std::string sa, std::string pn, uint16_t p)
+        : gui_address(std::move(ga)),
+          server_address(std::move(sa)),
+          player_name(std::move(pn)),
+          port(p){};
 };
 
 // Enum describing current status of the game.
 enum GameState {
-    InLobby, InGame, SendJoinMsg
+    InLobby,
+    InGame,
+    SendJoinMsg
 };
 
 // Atomic global variable describing current game state.
@@ -43,7 +48,7 @@ std::atomic<GameState> game_state(SendJoinMsg);
 // Class for storing all information about client.
 // It stores all network-wise data.
 class ClientInfo {
-public:
+   public:
     boost::asio::io_context io_context;
 
     address_info server_address;
@@ -64,8 +69,7 @@ public:
         gui_address = get_address_info(settings.gui_address);
 
         gui_endpoint = *UDP_resolver.resolve(gui_address.address, gui_address.port);
-        gui_socket = udp::socket(io_context,
-                                 udp::endpoint(udp::v6(), settings.port));
+        gui_socket = udp::socket(io_context, udp::endpoint(udp::v6(), settings.port));
 
         server_endpoint = *TCP_resolver.resolve(server_address.address, server_address.port);
 
@@ -89,16 +93,13 @@ client_parameters check_parameters_and_fill_settings(int argc, char *argv[]) {
     try {
         po::options_description description("Allowed options");
 
-        description.add_options()
-                ("help,h", "produce help message")
-                ("gui-address,d", po::value<std::string>(&gui_address)->required(),
-                        "specify gui address")
-                ("player-name,n", po::value<std::string>(&player_name)->required(),
-                        "set Player name")
-                ("server-address,s", po::value<std::string>(&server_address)->required(),
-                        "specify server address")
-                ("port,p", po::value<uint16_t>(&port)->required(),
-                        "set client port to listen from gui");
+        description.add_options()("help,h", "produce help message")(
+            "gui-address,d", po::value<std::string>(&gui_address)->required(),
+            "specify gui address")(
+            "player-name,n", po::value<std::string>(&player_name)->required(), "set Player name")(
+            "server-address,s", po::value<std::string>(&server_address)->required(),
+            "specify server address")("port,p", po::value<uint16_t>(&port)->required(),
+                                      "set client port to listen from gui");
 
         po::variables_map vm;
         po::store(po::parse_command_line(argc, argv, description), vm);
@@ -110,12 +111,10 @@ client_parameters check_parameters_and_fill_settings(int argc, char *argv[]) {
         }
 
         po::notify(vm);
-    }
-    catch(std::exception& e) {
+    } catch (std::exception &e) {
         std::cerr << "error: " << e.what() << "\n";
         exit(EXIT_FAILURE);
-    }
-    catch(...) {
+    } catch (...) {
         std::cerr << "Exception of unknown type!\n";
         exit(EXIT_FAILURE);
     }
@@ -185,14 +184,12 @@ void receive_from_gui_send_to_server(ClientInfo &client_info) {
                     tcpBuffer << msg_to_server;
                 }
                 tcpBuffer.sendMsg();
-            }
-            catch (std::exception &e) {
+            } catch (std::exception &e) {
                 std::cerr << "error " << e.what() << '\n';
                 continue;
             }
         }
-    }
-    catch (std::exception &e) {
+    } catch (std::exception &e) {
         std::cerr << "error " << e.what() << '\n';
         exit(EXIT_FAILURE);
     }
@@ -216,8 +213,9 @@ void handle_hello_msg(ServerMessage &server_message, MessageToGui &msg_to_gui) {
 void handle_accepted_player(ServerMessage &server_message, MessageToGui &msg_to_gui) {
     msg_to_gui.players.insert({server_message.player_id, server_message.player});
     msg_to_gui.scores[server_message.player_id] = 0;
-    if (debug) std::cerr << "Accepted player " << server_message.player.player_name
-              << " with address: " << server_message.player.player_address;
+    if (debug)
+        std::cerr << "Accepted player " << server_message.player.player_name
+                  << " with address: " << server_message.player.player_address;
 }
 
 // Function sets msg_to_gui with appropriate data from game started msg.
@@ -225,7 +223,7 @@ void handle_game_started(ServerMessage &server_message, MessageToGui &msg_to_gui
     if (debug) std::cerr << "Received GameStarted";
     game_state = InGame;
     msg_to_gui.players = server_message.players;
-    for (const auto& player : msg_to_gui.players) {
+    for (const auto &player : msg_to_gui.players) {
         msg_to_gui.scores[player.first] = 0;
     }
 }
@@ -234,44 +232,46 @@ void handle_game_started(ServerMessage &server_message, MessageToGui &msg_to_gui
 // It also adds some elements to dead players and destroyed blocks.
 void handle_bomb_exploded(MessageToGui &msg_to_gui,
                           std::set<player_id_t> &dead_players,
-                          std::set<Position> &destroyed_blocks, const Event &event) {
+                          std::set<Position> &destroyed_blocks,
+                          const Event &event) {
     Bomb bomb = msg_to_gui.bombs[event.bomb_id];
     Position pos = bomb.position;
     msg_to_gui.bombs.erase(event.bomb_id);
-    for (uint16_t i = 0 ; i <= msg_to_gui.explosion_radius; i++) {
+    for (uint16_t i = 0; i <= msg_to_gui.explosion_radius; i++) {
         if (pos.x + i == msg_to_gui.size_x) break;
-        msg_to_gui.explosions.insert({(uint16_t) (pos.x + i), pos.y});
-        if (msg_to_gui.blocks.contains({(uint16_t) (pos.x + i), pos.y})) break;
+        msg_to_gui.explosions.insert({(uint16_t)(pos.x + i), pos.y});
+        if (msg_to_gui.blocks.contains({(uint16_t)(pos.x + i), pos.y})) break;
     }
-    for (uint16_t i = 0 ; i <= msg_to_gui.explosion_radius; i++) {
-        msg_to_gui.explosions.insert({(uint16_t) (pos.x - i), pos.y});
+    for (uint16_t i = 0; i <= msg_to_gui.explosion_radius; i++) {
+        msg_to_gui.explosions.insert({(uint16_t)(pos.x - i), pos.y});
         if (pos.x - i == 0) break;
-        if (msg_to_gui.blocks.contains({(uint16_t) (pos.x - i), pos.y})) break;
+        if (msg_to_gui.blocks.contains({(uint16_t)(pos.x - i), pos.y})) break;
     }
-    for (uint16_t i = 0 ; i <= msg_to_gui.explosion_radius; i++) {
+    for (uint16_t i = 0; i <= msg_to_gui.explosion_radius; i++) {
         if (pos.y + i == msg_to_gui.size_y) break;
-        msg_to_gui.explosions.insert({pos.x, (uint16_t) (pos.y + i)});
-        if (msg_to_gui.blocks.contains({pos.x, (uint16_t) (pos.y + i)})) break;
+        msg_to_gui.explosions.insert({pos.x, (uint16_t)(pos.y + i)});
+        if (msg_to_gui.blocks.contains({pos.x, (uint16_t)(pos.y + i)})) break;
     }
-    for (uint16_t i = 0 ; i <= msg_to_gui.explosion_radius; i++) {
-        msg_to_gui.explosions.insert({pos.x, (uint16_t) (pos.y - i)});
+    for (uint16_t i = 0; i <= msg_to_gui.explosion_radius; i++) {
+        msg_to_gui.explosions.insert({pos.x, (uint16_t)(pos.y - i)});
         if (pos.y - i == 0) break;
-        if (msg_to_gui.blocks.contains({pos.x, (uint16_t) (pos.y - i)})) break;
+        if (msg_to_gui.blocks.contains({pos.x, (uint16_t)(pos.y - i)})) break;
     }
 
-    for (auto id: event.robots_destroyed) {
+    for (auto id : event.robots_destroyed) {
         if (!dead_players.contains(id)) {
             msg_to_gui.scores[id]++;
             dead_players.insert(id);
         }
     }
-    for (auto position: event.blocks_destroyed) {
+    for (auto position : event.blocks_destroyed) {
         destroyed_blocks.insert(position);
     }
 }
 
 // Function sets msg_to_gui with appropriate data from turn msg.
-void handle_turn(ServerMessage &server_message, MessageToGui &msg_to_gui,
+void handle_turn(ServerMessage &server_message,
+                 MessageToGui &msg_to_gui,
                  std::set<player_id_t> &dead_players,
                  std::set<Position> &destroyed_blocks) {
     if (debug) std::cerr << "Received Turn " << server_message.turn;
@@ -283,7 +283,7 @@ void handle_turn(ServerMessage &server_message, MessageToGui &msg_to_gui,
     msg_to_gui.turn = server_message.turn;
     dead_players.clear();
     destroyed_blocks.clear();
-    for (const auto& event : server_message.events) {
+    for (const auto &event : server_message.events) {
         switch (event.event_type) {
             case BombPlaced: {
                 Bomb bomb(event.position, msg_to_gui.bomb_timer);
@@ -291,8 +291,7 @@ void handle_turn(ServerMessage &server_message, MessageToGui &msg_to_gui,
                 break;
             }
             case BombExploded: {
-                handle_bomb_exploded(msg_to_gui,dead_players,
-                                     destroyed_blocks, event);
+                handle_bomb_exploded(msg_to_gui, dead_players, destroyed_blocks, event);
                 break;
             }
             case PlayerMoved:
@@ -303,10 +302,9 @@ void handle_turn(ServerMessage &server_message, MessageToGui &msg_to_gui,
                 break;
         }
     }
-    for (auto position: destroyed_blocks) {
+    for (auto position : destroyed_blocks) {
         msg_to_gui.blocks.erase(position);
     }
-
 }
 
 // Function sets msg_to_gui with appropriate data from accepted player msg.
@@ -367,12 +365,10 @@ void receive_from_server_send_to_gui(ClientInfo &client_info) {
                 udpBuffer.sendMsg();
             }
         }
-    }
-    catch (std::exception &e){
+    } catch (std::exception &e) {
         std::cerr << "error " << e.what() << '\n';
         exit(EXIT_FAILURE);
-    }
-    catch (...) {
+    } catch (...) {
         std::cerr << "Unknown exception\n";
         exit(EXIT_FAILURE);
     }
@@ -388,8 +384,7 @@ int main(int argc, char *argv[]) {
 
         gui_listener_thread.join();
         server_listener_thread.join();
-    }
-    catch (std::exception &e) {
+    } catch (std::exception &e) {
         std::cerr << "error " << e.what() << '\n';
         exit(EXIT_FAILURE);
     }

@@ -3,6 +3,7 @@
 
 #include <cstdlib>
 #include <cstring>
+
 #include "definitions.hpp"
 
 #define DECIMAL_BASE 10
@@ -11,18 +12,15 @@
 inline bool is_valid_port_number(const char* number) {
     if (number == nullptr) return false;
     if (number[0] == '0' && strlen(number) == 1) return true;
-    if (number[0] == '0' || !isdigit(number[0]))
-        return false;
+    if (number[0] == '0' || !isdigit(number[0])) return false;
     for (int i = 1; number[i] != 0; i++) {
-        if (!isdigit(number[i]))
-            return false;
+        if (!isdigit(number[i])) return false;
     }
 
-    char *end;
+    char* end;
     errno = 0;
     unsigned long port = strtoul(number, &end, DECIMAL_BASE);
-    if (errno != 0 || port > UINT16_MAX)
-        return false;
+    if (errno != 0 || port > UINT16_MAX) return false;
     return true;
 }
 
@@ -60,4 +58,4 @@ void printDirection(Direction d) {
     }
 }
 
-#endif //BOMBERMAN_UTILS_HPP
+#endif  // BOMBERMAN_UTILS_HPP

@@ -1,11 +1,12 @@
 #ifndef BOMBERMAN_SERIALIZATION_HPP
 #define BOMBERMAN_SERIALIZATION_HPP
+#include <map>
+#include <set>
+#include <string>
+#include <utility>
+
 #include "buffer.hpp"
 #include "definitions.hpp"
-#include <string>
-#include <set>
-#include <map>
-#include <utility>
 
 /*                                                   *
  * Operators for reading and writing standard types. *
@@ -49,7 +50,7 @@ Buffer &operator>>(Buffer &buffer, uint32_t &val) {
 
 // Writing string operator.
 Buffer &operator<<(Buffer &buffer, const std::string &str) {
-    buffer.writeUint8((uint8_t) str.size());
+    buffer.writeUint8((uint8_t)str.size());
     buffer.writeString(str);
     return buffer;
 }
@@ -107,13 +108,13 @@ Buffer &operator>>(Buffer &buffer, Direction &direction) {
     if (dir > 3) {
         throw std::invalid_argument("Wrong direction received");
     }
-    direction = (Direction) dir;
+    direction = (Direction)dir;
     return buffer;
 }
 
 // Direction write operator.
-Buffer &operator<<(Buffer & buffer, const Direction &direction) {
-    buffer << (uint8_t) direction;
+Buffer &operator<<(Buffer &buffer, const Direction &direction) {
+    buffer << (uint8_t)direction;
     return buffer;
 }
 
@@ -124,7 +125,7 @@ Buffer &operator<<(Buffer & buffer, const Direction &direction) {
 // Writing players map operator.
 Buffer &operator<<(Buffer &buffer, const std::map<player_id_t, Player> &players) {
     buffer << (uint32_t)players.size();
-    for (const auto& elem : players) {
+    for (const auto &elem : players) {
         buffer << elem.first << elem.second;
     }
     return buffer;
@@ -145,8 +146,8 @@ Buffer &operator>>(Buffer &buffer, std::map<player_id_t, Player> &players) {
 
 // Writing bombs map operator.
 Buffer &operator<<(Buffer &buffer, const std::map<bomb_id_t, Bomb> &bombs) {
-    buffer << (uint32_t) bombs.size();
-    for (const auto& elem : bombs) {
+    buffer << (uint32_t)bombs.size();
+    for (const auto &elem : bombs) {
         // We don't want to send bomb id.
         buffer << elem.second;
     }
@@ -155,24 +156,24 @@ Buffer &operator<<(Buffer &buffer, const std::map<bomb_id_t, Bomb> &bombs) {
 
 // Writing positions map operator.
 Buffer &operator<<(Buffer &buffer, const std::map<player_id_t, Position> &positions) {
-    buffer << (uint32_t) positions.size();
-    for (const auto& elem : positions) {
+    buffer << (uint32_t)positions.size();
+    for (const auto &elem : positions) {
         buffer << elem.first << elem.second;
     }
     return buffer;
 }
 
 // Writing scores map operator.
-Buffer &operator<<(Buffer &buffer, const std::map<player_id_t , score_t> &scores) {
-    buffer << (uint32_t) scores.size();
-    for (const auto& elem : scores) {
+Buffer &operator<<(Buffer &buffer, const std::map<player_id_t, score_t> &scores) {
+    buffer << (uint32_t)scores.size();
+    for (const auto &elem : scores) {
         buffer << elem.first << elem.second;
     }
     return buffer;
 }
 
 // Reading scores map operator;
-Buffer &operator>>(Buffer &buffer, std::map<player_id_t , score_t> &scores) {
+Buffer &operator>>(Buffer &buffer, std::map<player_id_t, score_t> &scores) {
     size_t size = buffer.readUint32();
     scores.clear();
     for (size_t i = 0; i < size; i++) {
@@ -186,8 +187,8 @@ Buffer &operator>>(Buffer &buffer, std::map<player_id_t , score_t> &scores) {
 
 // Writing positions set operator.
 Buffer &operator<<(Buffer &buffer, const std::set<Position> &positions) {
-    buffer << (uint32_t) positions.size();
-    for (const auto& elem : positions) {
+    buffer << (uint32_t)positions.size();
+    for (const auto &elem : positions) {
         buffer << elem;
     }
     return buffer;
@@ -206,7 +207,7 @@ Buffer &operator>>(Buffer &buffer, std::set<Position> &positions) {
 }
 
 // Reading player id's set operator.
-Buffer &operator>>(Buffer &buffer, std::set<player_id_t>& players) {
+Buffer &operator>>(Buffer &buffer, std::set<player_id_t> &players) {
     size_t size = buffer.readUint32();
     players.clear();
     for (size_t i = 0; i < size; i++) {
@@ -218,7 +219,7 @@ Buffer &operator>>(Buffer &buffer, std::set<player_id_t>& players) {
 }
 
 // Writing player id's set operator.
-Buffer &operator<<(Buffer &buffer, const std::set<player_id_t>& players) {
+Buffer &operator<<(Buffer &buffer, const std::set<player_id_t> &players) {
     buffer << (uint32_t)(players.size());
     for (auto id : players) {
         buffer << id;
@@ -235,7 +236,7 @@ Buffer &operator>>(Buffer &buffer, Event &event) {
     if (event_type > 3) {
         throw std::invalid_argument("Wrong event type received");
     }
-    event.event_type = (EventType) event_type;
+    event.event_type = (EventType)event_type;
     switch (event.event_type) {
         case BombPlaced:
             buffer >> event.bomb_id >> event.position;
@@ -288,7 +289,7 @@ Buffer &operator>>(Buffer &buffer, std::vector<Event> &events) {
 // Write events vector operator.
 Buffer &operator<<(Buffer &buffer, const std::vector<Event> &events) {
     buffer << (uint32_t)events.size();
-    for (const auto& event : events) {
+    for (const auto &event : events) {
         buffer << event;
     }
     return buffer;
@@ -298,7 +299,7 @@ Buffer &operator<<(Buffer &buffer, const std::vector<Event> &events) {
 
 // Writing message to gui operator.
 Buffer &operator<<(Buffer &buffer, const MessageToGui &message) {
-    buffer << (uint8_t) message.msg_type;
+    buffer << (uint8_t)message.msg_type;
     switch (message.msg_type) {
         case Lobby:
             buffer << message.server_name << message.player_count << message.size_x
@@ -306,10 +307,9 @@ Buffer &operator<<(Buffer &buffer, const MessageToGui &message) {
                    << message.bomb_timer << message.players;
             break;
         case Game:
-            buffer << message.server_name << message.size_x << message.size_y
-                   << message.game_length << message.turn << message.players
-                   << message.player_positions << message.blocks << message.bombs
-                   << message.explosions << message.scores;
+            buffer << message.server_name << message.size_x << message.size_y << message.game_length
+                   << message.turn << message.players << message.player_positions << message.blocks
+                   << message.bombs << message.explosions << message.scores;
             break;
     }
     return buffer;
@@ -321,7 +321,7 @@ Buffer &operator>>(Buffer &buffer, GuiInputMessage &message) {
     if (msg_type > 2) {
         throw std::invalid_argument("Wrong message type received");
     }
-    message.msg_type = (GuiInputEnum) msg_type;
+    message.msg_type = (GuiInputEnum)msg_type;
     if (message.msg_type == GuiInputEnum::MoveGui) {
         buffer >> message.direction;
     }
@@ -334,8 +334,7 @@ Buffer &operator<<(Buffer &buffer, const ClientMessage &message) {
     buffer << (uint8_t)(message.msg_type);
     if (message.msg_type == Join) {
         buffer << message.player_name;
-    }
-    else if (message.msg_type == Move) {
+    } else if (message.msg_type == Move) {
         buffer << message.direction;
     }
     return buffer;
@@ -350,8 +349,7 @@ Buffer &operator>>(Buffer &buffer, ClientMessage &message) {
     message.msg_type = (ClientMessageEnum)msg_type;
     if (message.msg_type == Join) {
         buffer >> message.player_name;
-    }
-    else if (message.msg_type == Move) {
+    } else if (message.msg_type == Move) {
         buffer >> message.direction;
     }
     return buffer;
@@ -363,12 +361,12 @@ Buffer &operator>>(Buffer &buffer, ServerMessage &message) {
     if (msg_type > 4) {
         throw std::invalid_argument("Wrong message type received");
     }
-    message.msg_type = (ServerMessageEnum) msg_type;
+    message.msg_type = (ServerMessageEnum)msg_type;
     switch (message.msg_type) {
         case Hello:
-            buffer >> message.server_name >> message.player_count
-                   >> message.size_x >> message.size_y >> message.game_length
-                   >> message.explosion_radius >> message.bomb_timer;
+            buffer >> message.server_name >> message.player_count >> message.size_x >>
+                message.size_y >> message.game_length >> message.explosion_radius >>
+                message.bomb_timer;
             break;
         case AcceptedPlayer:
             buffer >> message.player_id >> message.player;
@@ -391,9 +389,9 @@ Buffer &operator<<(Buffer &buffer, const ServerMessage &message) {
     buffer << (uint8_t)message.msg_type;
     switch (message.msg_type) {
         case Hello:
-            buffer << message.server_name << message.player_count
-                   << message.size_x << message.size_y << message.game_length
-                   << message.explosion_radius << message.bomb_timer;
+            buffer << message.server_name << message.player_count << message.size_x
+                   << message.size_y << message.game_length << message.explosion_radius
+                   << message.bomb_timer;
             break;
         case AcceptedPlayer:
             buffer << message.player_id << message.player;
@@ -411,4 +409,4 @@ Buffer &operator<<(Buffer &buffer, const ServerMessage &message) {
     return buffer;
 }
 
-#endif //BOMBERMAN_SERIALIZATION_HPP
+#endif  // BOMBERMAN_SERIALIZATION_HPP

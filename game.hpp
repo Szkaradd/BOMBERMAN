@@ -1,15 +1,16 @@
 #ifndef BOMBERMAN_GAME_HPP
 #define BOMBERMAN_GAME_HPP
 
+#include <boost/asio.hpp>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <map>
 #include <set>
 #include <vector>
-#include <boost/asio.hpp>
-#include "definitions.hpp"
+
 #include "buffer.hpp"
+#include "definitions.hpp"
 #include "serialization.hpp"
 #include "utils.hpp"
 
@@ -25,7 +26,7 @@ std::string address_from_socket(tcp::socket &socket) {
 }
 
 class Game {
-private:
+   private:
     server_parameters game_settings;
 
     boost::asio::io_context io_context;
@@ -99,59 +100,59 @@ private:
     }
 
     void handle_connection() {
-            tcp::socket socket(io_context);
-            TCPBuffer buffer(socket);
-            acceptor.accept(socket);
+        tcp::socket socket(io_context);
+        TCPBuffer buffer(socket);
+        acceptor.accept(socket);
 
-            buffer << create_hello_message();
-            buffer.sendMsg();
+        buffer << create_hello_message();
+        buffer.sendMsg();
 
-            std::string client_address = address_from_socket(socket);
-            std::cout << "Client " << client_address << " connected!\n";
+        std::string client_address = address_from_socket(socket);
+        std::cout << "Client " << client_address << " connected!\n";
 
-            while (true) {
-                buffer >> client_message;
-                std::cout << "Received ";
-                switch (client_message.msg_type) {
-                    case Join:
-                        std::cout << "Join " << client_message.player_name;
-                        if (connected_players < game_settings.players_count) {
-                            Player new_player = {client_message.player_name, client_address};
-                            players.insert({curr_id, new_player});
-                            buffer << create_accepted_player_message(new_player);
-                            buffer.sendMsg();
-                        }
-                        break;
-                    case PlaceBomb:
-                        std::cout << "Place Bomb";
-                        break;
-                    case PlaceBlock:
-                        std::cout << "Place Block";
-                        break;
-                    case Move:
-                        std::cout << "Move ";
-                        printDirection(client_message.direction);
-                        break;
-                }
-                std::cout << '\n';
-                if (client_message.msg_type == Join) break;
+        while (true) {
+            buffer >> client_message;
+            std::cout << "Received ";
+            switch (client_message.msg_type) {
+                case Join:
+                    std::cout << "Join " << client_message.player_name;
+                    if (connected_players < game_settings.players_count) {
+                        Player new_player = {client_message.player_name, client_address};
+                        players.insert({curr_id, new_player});
+                        buffer << create_accepted_player_message(new_player);
+                        buffer.sendMsg();
+                    }
+                    break;
+                case PlaceBomb:
+                    std::cout << "Place Bomb";
+                    break;
+                case PlaceBlock:
+                    std::cout << "Place Block";
+                    break;
+                case Move:
+                    std::cout << "Move ";
+                    printDirection(client_message.direction);
+                    break;
             }
+            std::cout << '\n';
+            if (client_message.msg_type == Join) break;
+        }
 
-            std::cout << "Sending game started to " << client_address << '\n';
-            buffer << create_game_started_message();
+        std::cout << "Sending game started to " << client_address << '\n';
+        buffer << create_game_started_message();
+        buffer.sendMsg();
+        for (int i = 0; i < game_settings.game_length; i++) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(game_settings.turn_duration));
+            std::cout << "Sending turn " << i << " to " << client_address << '\n';
+            buffer << create_turn_message((uint16_t)i);
             buffer.sendMsg();
-            for (int i = 0; i < game_settings.game_length; i++) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(game_settings.turn_duration));
-                std::cout << "Sending turn " << i << " to " << client_address << '\n';
-                buffer << create_turn_message((uint16_t)i);
-                buffer.sendMsg();
-            }
-            std::cout << "Sending game ended to " << client_address << '\n';
-            buffer << create_game_ended_message();
-            buffer.sendMsg();
+        }
+        std::cout << "Sending game ended to " << client_address << '\n';
+        buffer << create_game_ended_message();
+        buffer.sendMsg();
     }
 
-public:
+   public:
     explicit Game(server_parameters &settings) : game_settings(settings) {
         connected_players = 0;
         curr_id = 0;
@@ -164,12 +165,11 @@ public:
             while (true) {
                 handle_connection();
             }
-        }
-        catch (std::exception &e) {
+        } catch (std::exception &e) {
             std::cerr << "error: " << e.what() << '\n';
             run_game();
         }
     }
 };
 
-#endif //BOMBERMAN_GAME_HPP
+#endif  // BOMBERMAN_GAME_HPP
